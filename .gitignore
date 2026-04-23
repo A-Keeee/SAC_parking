@@ -1,0 +1,16 @@
+# custom
+log/
+log
+
+# data
+parking
+*.csv
+
+# python
+__pycache__
+*.pyc
+
+# vscode
+.vscode
+*.code-workspace
+.VSCodeCounter
