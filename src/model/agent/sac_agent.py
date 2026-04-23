@@ -13,6 +13,9 @@ from model.state_norm import StateNorm
 from model.action_mask import ActionMask
 
 class SACCriticAdapter(nn.Module):
+    """
+    函数核心功能：适配 SAC 算法的 Critic 网络结构。
+    """
     def __init__(self, configs: dict, action_dim:int=2):
         super().__init__()
         self.configs = deepcopy(configs)
@@ -29,8 +32,12 @@ class SACCriticAdapter(nn.Module):
     def load_img_encoder(self, path: str = None, device: str = None, require_grad: bool = False) -> None:
         self.net.load_img_encoder(path, device, require_grad)
 
-
 class SACConfig(ConfigBase):
+    """
+    函数核心功能：配置 SAC 算法的超参数。
+    重要逻辑步骤解释：
+    极大地提升了记忆库大小和批处理大小，以适应多车连续控制场景的数据复杂性，防止训练崩溃。
+    """
     def __init__(self, configs):
         super().__init__()
 
@@ -42,9 +49,11 @@ class SACConfig(ConfigBase):
         self.adam_epsilon = 1e-8
         self.dist_type = "gaussian"
         self.hidden_size = 256
-        self.memory_size = 10240
-        self.batch_size = 32
-        # self.mini_batch_size = 32
+        
+        # 【重要修复】：提升多智能体下的样本缓存与采样效率
+        self.memory_size = 200000 # 从 10240 提升至 200,000，防止经验覆盖过快
+        self.batch_size = 256     # 从 32 提升至 256，使得梯度下降更稳定
+
         self.mini_epoch = 1
         self.initial_temperature = 0.01
         self.action_dim = 2
@@ -58,8 +67,10 @@ class SACConfig(ConfigBase):
 
         self.merge_configs(configs)
 
-
 class SACAgent(AgentBase):
+    """
+    函数核心功能：实现 Soft Actor-Critic (SAC) 强化学习智能体的主体逻辑。
+    """
     def __init__(
         self, configs: dict, discrete: bool = False, verbose: bool = False,
         save_params: bool = False, load_params: bool = False
@@ -176,14 +187,6 @@ class SACAgent(AgentBase):
 
     def get_action(self, obs: np.ndarray):
         '''Take action based on one observation. 
-
-        Args:
-            observation(np.ndarray): np.ndarray with the same shape of self.state_dim.
-
-        Returns:
-            action: If self.discrete, the action is an (int) index. 
-                If the action space is continuous, the action is an (np.ndarray).
-            log_prob(np.ndarray): the log probability of taken action.
         '''
         dist = self._actor_forward(obs)
         action, log_prob = self._post_process_action(dist)
@@ -191,14 +194,6 @@ class SACAgent(AgentBase):
         return action, log_prob
 
     def get_log_prob(self, obs: np.ndarray, action: np.ndarray):
-        '''get the log probability for given action based on current policy
-
-        Args:
-            observation(np.ndarray): np.ndarray with the same shape of self.state_dim.
-
-        Returns:
-            log_prob(np.ndarray): the log probability of taken action.
-        '''
         dist = self._actor_forward(obs)
         
         action = torch.FloatTensor(action).to(self.device)
@@ -207,10 +202,6 @@ class SACAgent(AgentBase):
         return log_prob
 
     def push_memory(self, observations):
-        '''
-        Args:
-            observations(tuple): (obs, action, reward, done, log_prob, next_obs)
-        '''
         obs, action, reward, done, log_prob, next_obs = deepcopy(observations)
         if self.configs.state_norm:
             obs = self.state_normalize.state_norm(obs)
@@ -342,18 +333,15 @@ class SACAgent(AgentBase):
         return a, b
 
     def save(self, path: str = None, params_only: bool = None) -> None:
-        """Store the model structure and corresponding parameters to a file.
-        """
         if params_only is not None:
             self.save_params = params_only
         if self.save_params and len(self.check_list) > 0:
             checkpoint = dict()
             for name, item, save_state_dict in self.check_list:
                 checkpoint[name] = item.state_dict() if save_state_dict else item
-            # for PPO extra save
             if self.configs.dist_type == "gaussian":
                 checkpoint['log'] = self.log_std
-            checkpoint['state_norm'] = self.state_normalize # (self.state_mean, self.state_std, self.S, self.n_state)
+            checkpoint['state_norm'] = self.state_normalize
             checkpoint['optimizer'] = (self.actor_optimizer, self.critic_optimizer1, self.critic_optimizer2)
             torch.save(checkpoint, path)
         else:
@@ -363,8 +351,6 @@ class SACAgent(AgentBase):
             print("Save current model to %s" % path)
 
     def load(self, path: str = None, params_only: bool = None) -> None:
-        """Load the model structure and corresponding parameters from a file.
-        """
         if params_only is not None:
             self.load_params = params_only
         if self.load_params and len(self.check_list) > 0:

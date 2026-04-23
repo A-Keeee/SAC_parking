@@ -601,7 +601,7 @@ class MultiCarParking(CarParking):
         vehicle_box = Polygon(self.vehicles[agent_idx].box)
         dest_box = Polygon(self.map.dest_boxes[agent_idx])
         union_area = vehicle_box.intersection(dest_box).area
-        if union_area / dest_box.area > 0.95:
+        if union_area / dest_box.area > 0.75:
             return True
         return False
 

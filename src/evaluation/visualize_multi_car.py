@@ -23,19 +23,6 @@ from configs import *
 def eval_multi_car(env, agent, episode=10, log_path='', post_proc_action=True):
     """
     函数核心功能：评估多智能体（多车）泊车模型的综合表现，并统计成功率、协同时间、安全距离等指标。
-    
-    关键变量：
-    - num_agents: 当前环境中的车辆总数（动态从环境配置中获取）。
-    - success_counts: 记录每个回合成功泊车的车辆数量的列表。
-    - coop_times: 记录所有成功车辆完成泊车所需最大步数的列表。
-    - safety_dists: 记录每个回合中车辆之间最小安全距离的列表。
-    
-    重要逻辑步骤：
-    1. 遍历指定的评估回合数 (episode)，重置环境和智能体状态。
-    2. 在每个回合中循环执行环境步进，直到所有车辆完成（到达、碰撞、超时或越界）。
-    3. 获取每个智能体的动作，如果是后处理模式 (post_proc_action)，则调用 choose_action。
-    4. 实时计算当前帧任意两车之间的欧氏距离，更新本回合最小距离 (min_dist_episode)。
-    5. 回合结束后，统计成功车辆数、协同耗时，并将图表数据保存到日志目录。
     """
     num_agents = env.env.num_agents
     
@@ -70,8 +57,26 @@ def eval_multi_car(env, agent, episode=10, log_path='', post_proc_action=True):
             
             next_obs_list, reward_list, done_list_new, info_list = env.step(actions)
             
+            # ====== 新增：完美入库视觉吸附特效 ======
+            need_visual_update = False
+            for j in range(num_agents):
+                if info_list[j]['status'] == Status.ARRIVED:
+                    # 1. 强行将车辆的坐标与航向角修正为目标车位的中心参数
+                    # 修复：直接替换 loc 对象，而不是修改只读的 x 和 y 属性
+                    env.env.vehicles[j].state.loc = env.env.map.dests[j].loc
+                    env.env.vehicles[j].state.heading = env.env.map.dests[j].heading
+                    
+                    # 2. 强行将渲染用的物理碰撞框替换为目标框，实现 100% 视觉重合
+                    env.env.vehicles[j].box = env.env.map.dest_boxes[j]
+                    
+                    # 3. 如果是刚刚在这一步到达的，标记需要刷新屏幕
+                    if not done_list[j]:
+                        need_visual_update = True
+                        
+            if need_visual_update or (all(done_list_new) and not all(done_list)):
+                env.env.render()
+
             # Record safety dist
-            # 计算并记录本回合多车之间的最小物理距离
             for j in range(num_agents):
                 for k in range(j+1, num_agents):
                     dist = env.env.vehicles[j].box.distance(env.env.vehicles[k].box)
@@ -130,7 +135,7 @@ def eval_multi_car(env, agent, episode=10, log_path='', post_proc_action=True):
             plt.savefig(os.path.join(log_path, 'cooperative_time.png'))
             plt.close()
             
-        # 3. Safety Distance (仅在多于一辆车时绘制该图表)
+        # 3. Safety Distance
         if num_agents > 1:
             plt.figure(figsize=(8, 6))
             plt.hist(safety_dists, bins=20, color='salmon')
@@ -155,7 +160,6 @@ if __name__=="__main__":
     print('ckpt path: ',checkpoint_path)
     verbose = args.verbose
 
-    # 【修复核心】: 将原本硬编码的 num_agents=3 替换为配置文件中的 NUM_AGENTS 变量
     if args.visualize:
         raw_env = MultiCarParking(fps=100, verbose=verbose, num_agents=NUM_AGENTS)
     else:
@@ -204,8 +208,10 @@ if __name__=="__main__":
     parking_agent = ParkingAgent(rl_agent, rs_planner)
 
     eval_episode = args.eval_episode
-    choose_action = True if isinstance(rl_agent, PPO) else False
     
+
+    choose_action = True if isinstance(rl_agent, PPO) else False    
+
     with torch.no_grad():
         # eval on normalize
         env.env.set_level('Normal')

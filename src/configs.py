@@ -24,7 +24,7 @@ MULTI_CAR_COLORS = [
     (50, 205, 50, 255),    # lime green   - Car 2
 ]
 SAFETY_DIST_THRESHOLD = 1.0       # 车间安全距离阈值(m)
-COOPERATIVE_TIME_WEIGHT = 2.0     # 协同时间奖励权重
+COOPERATIVE_TIME_WEIGHT = 1.0     # 协同时间奖励权重
 SAFETY_REWARD_WEIGHT = 3.0        # 安全性奖励权重
 
 from shapely.geometry import LinearRing
@@ -81,8 +81,8 @@ N_OBSTACLE_DICT = {
 }
 
 # Normal level
-MIN_DIST_TO_OBST = 0.1
-MAX_DRIVE_DISTANCE = 15.0
+MIN_DIST_TO_OBST = 0.2
+MAX_DRIVE_DISTANCE = 25.0
 DROUP_OUT_OBST = 0.0
 
 #########################

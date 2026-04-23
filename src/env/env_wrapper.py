@@ -1,5 +1,3 @@
-
-
 import numpy as np
 from gym import Wrapper
 
@@ -9,10 +7,7 @@ from configs import REWARD_WEIGHT, REWARD_RATIO
 
 def reward_shaping(*args):
     '''
-    Parameters:
-        `args`: the arguments return by unwrapped environment
-    Returns: the same form as `args`
-
+    函数核心功能：单车环境的奖励塑形函数。
     '''
     obs, reward_info, status, info = args
     if status == Status.CONTINUE:
@@ -36,12 +31,7 @@ def reward_shaping(*args):
 
 def action_rescale(action:np.ndarray, action_space, raw_action_range=(-1,1), explore:bool=True, epsilon:float=0.0):
     '''
-    Parameters:
-        `action`: the action output by the learning model
-        `action_space`: the action space for unwrapped environment
-        `raw_action_space`: the action space of the learning model
-        `explore`: whether to use epsilon-greedy
-        `exsilon`: the explore rate
+    函数核心功能：将网络输出的动作从 [-1, 1] 映射回环境的真实动作空间。
     '''
     action = np.clip(action, *raw_action_range)
     action = action * (action_space.high - action_space.low) / 2 + (action_space.high + action_space.low) / 2
@@ -50,10 +40,12 @@ def action_rescale(action:np.ndarray, action_space, raw_action_range=(-1,1), exp
     return action
 
 def observation_rescale(obs):
+    '''
+    函数核心功能：处理图像观测维度的通道重排。
+    '''
     if obs['img'] is not None:
         obs['img'] = obs['img'].transpose((2,0,1))
     return obs
-
 
 class CarParkingWrapper(Wrapper):
     def __init__(self, env:CarParking, 
@@ -86,10 +78,14 @@ class CarParkingWrapper(Wrapper):
 
 def reward_shaping_multi(*args, actions=None):
     '''
-    Parameters:
-        `args`: the arguments return by unwrapped environment
-    Returns: the same form as `args`
-
+    函数核心功能：多车环境的联合奖励塑形。
+    
+    关键变量：
+    - actions: 当前步的所有智能体动作列表。
+    - action_reward: 针对过度转向的惩罚项。
+    
+    重要逻辑步骤解释：
+    根据状态计算奖励基础值，并强制合并安全奖励、协同奖励以及动作平滑惩罚，确保所有的修改直接作用于强化学习计算返回值的 reward 列表中。
     '''
     from env.vehicle import VALID_STEER
     obs_list, reward_info_list, status_list, info_list = args
@@ -100,12 +96,16 @@ def reward_shaping_multi(*args, actions=None):
         reward_info = reward_info_list[i]
         info = info_list[i]
         
+        # 初始化当前车的动作惩罚为 0
+        current_action_reward = 0.0
+        
         if actions is not None:
             action = actions[i]
             steer = action[0]
             # Penalize excessive steering to discourage spinning
             action_reward = - (steer / VALID_STEER[1])**2
             reward_info['action_reward'] = action_reward
+            current_action_reward = action_reward
             
         if status == Status.CONTINUE:
             reward = 0
@@ -128,6 +128,9 @@ def reward_shaping_multi(*args, actions=None):
             reward += reward_info['safety_reward']
         if 'coop_reward' in reward_info:
             reward += reward_info['coop_reward']
+            
+        # 【重要修复】：把计算出来的原地打转惩罚真正加到强化学习能看到的 Reward 中，而不是只存字典里
+        reward += current_action_reward 
             
         reward *= REWARD_RATIO
         info['status'] = status
