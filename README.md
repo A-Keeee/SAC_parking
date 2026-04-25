@@ -85,7 +85,7 @@ python ./evaluation/visualize_multi_car.py --eval_episode 10 --visualize True
 该多车仿真环境依然兼容单车环境的 action 空间（通过策略共享）。你可以直接传入之前的 `SAC` 或 `PPO` 单车模型，三辆车会复用相同的预训练大脑进行控制：
 ```bash
 cd src
-python ./evaluation/visualize_multi_car.py --ckpt_path ./model/ckpt/HOPE_SAC1.pt --eval_episode 100 --visualize True
+python ./evaluation/visualize_multi_car.py --ckpt_path ./log/exp/sac_multi_20260424_111429/SAC_multi_best.pt --eval_episode 10 --visualize True
 ```
 
 ---
@@ -101,7 +101,7 @@ cd src
 python ./train/train_HOPE_sac_multi.py
 
 # 在多车环境中微调单车预训练模型（利用单车的先验知识）：
-python ./train/train_HOPE_sac_multi.py --agent_ckpt ./model/ckpt/HOPE_SAC0.pt --visualize True
+python ./train/train_HOPE_sac_multi.py --agent_ckpt ./log/exp/sac_multi_20260424_111429/SAC_multi_best.pt --visualize True
 ```
 ```
 > **注意**：训练中会在 `log/exp/sac_multi_<timestamp>/` 下保存 Tensorboard 日志和最优模型。评估时请将 `--ckpt_path` 指向这里生成的 `.pt` 权重。

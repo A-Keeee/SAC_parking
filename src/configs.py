@@ -23,9 +23,9 @@ MULTI_CAR_COLORS = [
     (255, 127, 80, 255),   # coral        - Car 1
     (50, 205, 50, 255),    # lime green   - Car 2
 ]
-SAFETY_DIST_THRESHOLD = 1.0       # 车间安全距离阈值(m)
-COOPERATIVE_TIME_WEIGHT = 1.0     # 协同时间奖励权重
-SAFETY_REWARD_WEIGHT = 3.0        # 安全性奖励权重
+SAFETY_DIST_THRESHOLD = 0.5       # 车间安全距离阈值(m)
+COOPERATIVE_TIME_WEIGHT = 3.0     # 协同时间奖励权重
+SAFETY_REWARD_WEIGHT = 0.5        # 安全性奖励权重
 
 from shapely.geometry import LinearRing
 VehicleBox = LinearRing([
@@ -191,12 +191,12 @@ CRITIC_CONFIGS = {
 
 REWARD_RATIO = 0.1
 from typing import OrderedDict
-REWARD_WEIGHT = OrderedDict({'time_cost':1,\
+REWARD_WEIGHT = OrderedDict({'time_cost':5,\
             'rs_dist_reward':2,\
             'dist_reward':4,\
             'angle_reward':3,\
-            'box_union_reward':10,\
-            'action_reward':1})
+            'box_union_reward':15,\
+            'action_reward':0.5})
 
 
 CONFIGS_ACTION = {
